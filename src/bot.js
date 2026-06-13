@@ -227,6 +227,7 @@ bot.command('stop', async (ctx) => {
 
 // ── Шаг 1: тип сайта ────────────────────────────────────────────
 bot.callbackQuery('brief:start', async (ctx) => {
+  await ctx.answerCallbackQuery();
   ctx.session = initial();
   ctx.session.step = 'type';
   const kb = new InlineKeyboard()
@@ -235,8 +236,13 @@ bot.callbackQuery('brief:start', async (ctx) => {
     .text(TYPES.shop, 'type:shop').row()
     .text(TYPES.say, 'type:say').row()
     .text(TYPES.other, 'type:other');
-  await ctx.editMessageText('① Что за сайт нужен?', { reply_markup: kb });
-  await ctx.answerCallbackQuery();
+  // Баннер — это фото, текст у него не редактируется: убираем кнопку и шлём новый вопрос
+  try {
+    await ctx.editMessageReplyMarkup();
+  } catch {
+    /* кнопка уже убрана — не страшно */
+  }
+  await ctx.reply('① Что за сайт нужен?', { reply_markup: kb });
 });
 
 bot.callbackQuery(/^type:(.+)$/, async (ctx) => {
