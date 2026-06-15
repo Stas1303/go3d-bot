@@ -69,15 +69,22 @@ const TYPES = {
 // Второй вопрос подстраивается под формат
 const ABOUT_Q = {
   say:
-    '<b>② Шаг 2 из 5</b>\nРасскажи про неё: как зовут, какой повод и что хочешь сказать. ' +
+    '<b>② Шаг 2 из 4</b>\nРасскажи про неё: как зовут, какой повод и что хочешь сказать. ' +
     'Можно пару строк — соберу красиво.',
-  _default: '<b>② Шаг 2 из 5</b>\nРасскажи в двух словах: чем занимаешься и что за сайт хочешь?',
+  _default: '<b>② Шаг 2 из 4</b>\nРасскажи в двух словах: чем занимаешься и что за сайт хочешь?',
 };
 
 // ── Помощники ───────────────────────────────────────────────────
 function userTag(from) {
   if (from.username) return '@' + from.username;
   return `${from.first_name || ''} ${from.last_name || ''}`.trim() || `id${from.id}`;
+}
+
+// Кликабельная ссылка на Telegram человека: @ник или deep-link по id.
+function userLink(from) {
+  if (from.username) return '@' + from.username;
+  const name = `${from.first_name || ''} ${from.last_name || ''}`.trim() || 'профиль';
+  return `<a href="tg://user?id=${from.id}">${name}</a>`;
 }
 
 async function sendBrief(ctx) {
@@ -242,7 +249,7 @@ bot.callbackQuery('brief:start', async (ctx) => {
   } catch {
     /* кнопка уже убрана — не страшно */
   }
-  await ctx.reply('<b>① Шаг 1 из 5</b>\nЧто за сайт нужен?', { parse_mode: 'HTML', reply_markup: kb });
+  await ctx.reply('<b>① Шаг 1 из 4</b>\nЧто за сайт нужен?', { parse_mode: 'HTML', reply_markup: kb });
 });
 
 bot.callbackQuery(/^type:(.+)$/, async (ctx) => {
@@ -271,18 +278,10 @@ bot.callbackQuery('visual:skip', async (ctx) => {
 // ── Готово с фото ───────────────────────────────────────────────
 bot.callbackQuery('photos:done', async (ctx) => {
   await ctx.answerCallbackQuery();
-  ctx.session.step = 'contact';
   const n = ctx.session.data.photos.length;
   await ctx.editMessageText(`✅ Фото: ${n} шт`);
-  await ctx.reply(
-    `<b>⑤ Шаг 5 из 5</b>\nКак с тобой связаться? Оставь @ник или телефон.\n\nМожно просто нажать — возьму твой ник ${userTag(ctx.from)}.`,
-    { parse_mode: 'HTML', reply_markup: new InlineKeyboard().text(`Взять ${userTag(ctx.from)}`, 'contact:self') },
-  );
-});
-
-bot.callbackQuery('contact:self', async (ctx) => {
-  await ctx.answerCallbackQuery();
-  ctx.session.data.contact = userTag(ctx.from);
+  // Контакт берём автоматически из Telegram — лишний вопрос не задаём.
+  ctx.session.data.contact = userLink(ctx.from);
   await finish(ctx);
 });
 
@@ -293,9 +292,9 @@ function goToPhotos(ctx) {
 async function askPhotos(ctx) {
   const isSay = ctx.session.data.type === TYPES.say;
   const q = isSay
-    ? '<b>④ Шаг 4 из 5</b>\nСкинь её фото (1–2) — добавлю на сайт-признание. Как закончишь — жми «Готово». ' +
+    ? '<b>④ Шаг 4 из 4</b>\nСкинь её фото (1–2) — добавлю на сайт-признание. Как закончишь — жми «Готово». ' +
       'Нет под рукой — тоже жми «Готово», пришлёшь потом.'
-    : '<b>④ Шаг 4 из 5</b>\nСкинь фото: логотип, фото бизнеса или скрины сайтов, которые нравятся. ' +
+    : '<b>④ Шаг 4 из 4</b>\nСкинь фото: логотип, фото бизнеса или скрины сайтов, которые нравятся. ' +
       'Можно несколько. Как закончишь — жми «Готово».';
   await ctx.reply(q, { parse_mode: 'HTML', reply_markup: new InlineKeyboard().text('Готово ✅', 'photos:done') });
 }
@@ -355,7 +354,7 @@ bot.on('message:text', async (ctx) => {
     case 'type_other':
       s.data.type = text;
       s.step = 'about';
-      await ctx.reply('<b>② Шаг 2 из 5</b>\nРасскажи в двух словах: чем занимаешься и что за сайт хочешь?', { parse_mode: 'HTML' });
+      await ctx.reply('<b>② Шаг 2 из 4</b>\nРасскажи в двух словах: чем занимаешься и что за сайт хочешь?', { parse_mode: 'HTML' });
       break;
     case 'about':
       s.data.about = text;
@@ -363,8 +362,8 @@ bot.on('message:text', async (ctx) => {
       {
         const isSay = s.data.type === TYPES.say;
         const q = isSay
-          ? '<b>③ Шаг 3 из 5</b>\nКакой настрой? Нежно, романтично, со звёздами, по-дружески — или жми «На твой вкус».'
-          : '<b>③ Шаг 3 из 5</b>\nКакой стиль хочешь? Строго, ярко, тёмный, минимал — любые мысли.';
+          ? '<b>③ Шаг 3 из 4</b>\nКакой настрой? Нежно, романтично, со звёздами, по-дружески — или жми «На твой вкус».'
+          : '<b>③ Шаг 3 из 4</b>\nКакой стиль хочешь? Строго, ярко, тёмный, минимал — любые мысли.';
         await ctx.reply(q, {
           parse_mode: 'HTML',
           reply_markup: new InlineKeyboard().text(isSay ? 'На твой вкус' : 'Пропустить', 'visual:skip'),
@@ -375,10 +374,6 @@ bot.on('message:text', async (ctx) => {
       s.data.visual = text;
       goToPhotos(ctx);
       await askPhotos(ctx);
-      break;
-    case 'contact':
-      s.data.contact = text;
-      await finish(ctx);
       break;
     default:
       await ctx.reply('Напиши /start, чтобы оставить заявку на сайт 🚀');
