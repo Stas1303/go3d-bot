@@ -9,7 +9,7 @@ const {
   BOT_TOKEN,
   CHANNEL_ID,
   ADMIN_ID,
-  SITE_URL = 'https://go-3-d.online',
+  SITE_URL = 'https://3-days.ru',
   CONTACT_TELEGRAM = 'https://t.me/lenin321',
   BOT_LINK = 'https://t.me/go3d_bot',
 } = process.env;

@@ -14,7 +14,7 @@ services:
       - key: CHANNEL_ID
         sync: false
       - key: SITE_URL
-        value: https://go-3-d.online
+        value: https://3-days.ru
       - key: WEBHOOK_URL
         sync: false
       - key: WEBHOOK_SECRET
