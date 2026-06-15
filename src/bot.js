@@ -397,6 +397,21 @@ bot.on('my_chat_member', async (ctx) => {
 
 bot.catch((err) => console.error('Ошибка бота:', err.error || err));
 
+// ── Команды-меню: клиенту — только /start, админу — полный набор ──
+async function applyCommands() {
+  await bot.api.setMyCommands([{ command: 'start', description: 'Собрать бриф на сайт' }]);
+  if (ADMIN_ID) {
+    await bot.api.setMyCommands(
+      [
+        { command: 'start', description: 'Собрать бриф на сайт' },
+        { command: 'admin', description: 'Панель управления' },
+        { command: 'idea', description: 'Закинуть идею в канал' },
+      ],
+      { scope: { type: 'chat', chat_id: Number(ADMIN_ID) } },
+    );
+  }
+}
+
 // ── Запуск: webhook на хостинге (Render) / polling локально ──────
 const { WEBHOOK_URL, WEBHOOK_SECRET = 'go3d-secret', PORT = 3000 } = process.env;
 
@@ -429,6 +444,7 @@ if (WEBHOOK_URL) {
       drop_pending_updates: true,
     });
     console.log(`Бот @${bot.botInfo.username} на webhook: ${WEBHOOK_URL}/webhook (порт ${PORT})`);
+    await applyCommands().catch((e) => console.warn('Не выставил команды:', e.message));
 
     // Keep-alive: бесплатный план Render усыпляет сервис после ~15 мин без
     // трафика, из-за чего первый /start ждёт холодного старта. Пингуем сами
@@ -441,6 +457,9 @@ if (WEBHOOK_URL) {
   // Локальный режим — long polling
   bot.start({
     drop_pending_updates: true,
-    onStart: (me) => console.log(`Бот @${me.username} запущен (polling). Жду /start…`),
+    onStart: (me) => {
+      console.log(`Бот @${me.username} запущен (polling). Жду /start…`);
+      applyCommands().catch((e) => console.warn('Не выставил команды:', e.message));
+    },
   });
 }
