@@ -3,16 +3,20 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createServer } from 'node:http';
-import { Bot, InlineKeyboard, InputFile, session, webhookCallback } from 'grammy';
+import { Api, Bot, InlineKeyboard, InputFile, session, webhookCallback } from 'grammy';
 
 const {
   BOT_TOKEN,
   CHANNEL_ID,
   ADMIN_ID,
+  NOTIFY_BOT_TOKEN,
   SITE_URL = 'https://3-days.ru',
   CONTACT_TELEGRAM = 'https://t.me/lenin321',
   BOT_LINK = 'https://t.me/go3d_bot',
 } = process.env;
+
+// Отдельный бот-приёмник заявок (личные уведомления фаундеру)
+const notifyApi = NOTIFY_BOT_TOKEN ? new Api(NOTIFY_BOT_TOKEN) : null;
 
 if (!BOT_TOKEN) {
   console.error('Нет BOT_TOKEN в .env');
@@ -103,18 +107,34 @@ async function sendBrief(ctx) {
     '─────────────────────\n' +
     `<b>Фото:</b> ${d.photos.length} шт`;
 
-  const dest = CHANNEL_ID || ADMIN_ID;
-  if (!dest) {
-    console.warn('Некуда слать заявку: пустые CHANNEL_ID и ADMIN_ID');
+  // Личная копия фаундеру — в отдельный бот-приёмник, если он подключён.
+  // Иначе шлём в основной бот на ADMIN_ID (старое поведение).
+  const dest = CHANNEL_ID || (notifyApi ? null : ADMIN_ID);
+  if (!dest && !notifyApi) {
+    console.warn('Некуда слать заявку: пустые CHANNEL_ID, ADMIN_ID и NOTIFY_BOT_TOKEN');
     return;
   }
 
-  await bot.api.sendMessage(dest, card, { parse_mode: 'HTML' });
+  if (dest) {
+    await bot.api.sendMessage(dest, card, { parse_mode: 'HTML' });
+    // Фото — альбомами по 10 (лимит Telegram)
+    for (let i = 0; i < d.photos.length; i += 10) {
+      const chunk = d.photos.slice(i, i + 10).map((file_id) => ({ type: 'photo', media: file_id }));
+      if (chunk.length) await bot.api.sendMediaGroup(dest, chunk);
+    }
+  }
 
-  // Фото — альбомами по 10 (лимит Telegram)
-  for (let i = 0; i < d.photos.length; i += 10) {
-    const chunk = d.photos.slice(i, i + 10).map((file_id) => ({ type: 'photo', media: file_id }));
-    if (chunk.length) await bot.api.sendMediaGroup(dest, chunk);
+  if (notifyApi && ADMIN_ID) {
+    try {
+      await notifyApi.sendMessage(ADMIN_ID, card, { parse_mode: 'HTML' });
+      // file_id основного бота не работает в другом боте — шлём по прямой ссылке на файл.
+      for (const file_id of d.photos) {
+        const file = await bot.api.getFile(file_id);
+        await notifyApi.sendPhoto(ADMIN_ID, `https://api.telegram.org/file/bot${BOT_TOKEN}/${file.file_path}`);
+      }
+    } catch (e) {
+      console.warn('Не отправил заявку в бот-приёмник:', e.message);
+    }
   }
 }
 
