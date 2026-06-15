@@ -69,9 +69,9 @@ const TYPES = {
 // Второй вопрос подстраивается под формат
 const ABOUT_Q = {
   say:
-    '② Расскажи про неё: как зовут, какой повод и что хочешь сказать. ' +
+    '<b>② Шаг 2 из 5</b>\nРасскажи про неё: как зовут, какой повод и что хочешь сказать. ' +
     'Можно пару строк — соберу красиво.',
-  _default: '② Расскажи в двух словах: чем занимаешься и что за сайт хочешь?',
+  _default: '<b>② Шаг 2 из 5</b>\nРасскажи в двух словах: чем занимаешься и что за сайт хочешь?',
 };
 
 // ── Помощники ───────────────────────────────────────────────────
@@ -242,7 +242,7 @@ bot.callbackQuery('brief:start', async (ctx) => {
   } catch {
     /* кнопка уже убрана — не страшно */
   }
-  await ctx.reply('① Что за сайт нужен?', { reply_markup: kb });
+  await ctx.reply('<b>① Шаг 1 из 5</b>\nЧто за сайт нужен?', { parse_mode: 'HTML', reply_markup: kb });
 });
 
 bot.callbackQuery(/^type:(.+)$/, async (ctx) => {
@@ -255,8 +255,8 @@ bot.callbackQuery(/^type:(.+)$/, async (ctx) => {
   }
   ctx.session.data.type = TYPES[key] || key;
   ctx.session.step = 'about';
-  await ctx.editMessageText(`Тип: ${ctx.session.data.type} ✅`);
-  await ctx.reply(ABOUT_Q[key] || ABOUT_Q._default);
+  await ctx.editMessageText(`✅ Сайт: ${ctx.session.data.type}`);
+  await ctx.reply(ABOUT_Q[key] || ABOUT_Q._default, { parse_mode: 'HTML' });
 });
 
 // ── Пропустить визуал ───────────────────────────────────────────
@@ -264,7 +264,7 @@ bot.callbackQuery('visual:skip', async (ctx) => {
   await ctx.answerCallbackQuery();
   ctx.session.data.visual = '—';
   goToPhotos(ctx);
-  await ctx.editMessageText('Визуал: пропущен');
+  await ctx.editMessageText('✅ Стиль: на твой вкус');
   await askPhotos(ctx);
 });
 
@@ -273,10 +273,10 @@ bot.callbackQuery('photos:done', async (ctx) => {
   await ctx.answerCallbackQuery();
   ctx.session.step = 'contact';
   const n = ctx.session.data.photos.length;
-  await ctx.editMessageText(`Фото: ${n} шт ✅`);
+  await ctx.editMessageText(`✅ Фото: ${n} шт`);
   await ctx.reply(
-    `⑤ Как с тобой связаться? Оставь @ник или телефон.\n\nМожно просто нажать — возьму твой ник ${userTag(ctx.from)}.`,
-    { reply_markup: new InlineKeyboard().text(`Взять ${userTag(ctx.from)}`, 'contact:self') },
+    `<b>⑤ Шаг 5 из 5</b>\nКак с тобой связаться? Оставь @ник или телефон.\n\nМожно просто нажать — возьму твой ник ${userTag(ctx.from)}.`,
+    { parse_mode: 'HTML', reply_markup: new InlineKeyboard().text(`Взять ${userTag(ctx.from)}`, 'contact:self') },
   );
 });
 
@@ -293,25 +293,33 @@ function goToPhotos(ctx) {
 async function askPhotos(ctx) {
   const isSay = ctx.session.data.type === TYPES.say;
   const q = isSay
-    ? '④ Скинь её фото (1–2) — добавлю на сайт-признание. Как закончишь — жми «Готово». ' +
+    ? '<b>④ Шаг 4 из 5</b>\nСкинь её фото (1–2) — добавлю на сайт-признание. Как закончишь — жми «Готово». ' +
       'Нет под рукой — тоже жми «Готово», пришлёшь потом.'
-    : '④ Скинь фото: логотип, фото бизнеса или скрины сайтов, которые нравятся. ' +
+    : '<b>④ Шаг 4 из 5</b>\nСкинь фото: логотип, фото бизнеса или скрины сайтов, которые нравятся. ' +
       'Можно несколько. Как закончишь — жми «Готово».';
-  await ctx.reply(q, { reply_markup: new InlineKeyboard().text('Готово ✅', 'photos:done') });
+  await ctx.reply(q, { parse_mode: 'HTML', reply_markup: new InlineKeyboard().text('Готово ✅', 'photos:done') });
 }
 
 async function finish(ctx) {
   await sendBrief(ctx);
   recordLead(ctx.session.data.type || '—');
+  const d = ctx.session.data;
+  const summary =
+    '✅ <b>Бриф собран и улетел Стасу</b>\n' +
+    '━━━━━━━━━━━━━━━━━\n' +
+    `🗂 <b>Сайт:</b> ${d.type || '—'}\n` +
+    `📝 <b>Проект:</b> ${d.about || '—'}\n` +
+    `🎨 <b>Стиль:</b> ${d.visual || '—'}\n` +
+    `🖼 <b>Фото:</b> ${d.photos.length} шт\n` +
+    `📲 <b>Контакт:</b> ${d.contact || '—'}\n` +
+    '━━━━━━━━━━━━━━━━━\n' +
+    'Стас напишет тебе совсем скоро.\n' +
+    '🤝 Гарантия: лендинг за 3 дня или деньги назад.';
   ctx.session = initial();
   const kb = new InlineKeyboard()
-    .url('Открыть сайт', SITE_URL)
-    .url('Написать Стасу', CONTACT_TELEGRAM);
-  await ctx.reply(
-    '✅ Готово! Бриф улетел Стасу — он напишет тебе совсем скоро.\n\n' +
-      'Гарантия: лендинг за 3 дня или деньги назад, а сайт остаётся у тебя 🤝',
-    { reply_markup: kb },
-  );
+    .url('🌐 Открыть сайт', SITE_URL)
+    .url('💬 Написать Стасу', CONTACT_TELEGRAM);
+  await ctx.reply(summary, { parse_mode: 'HTML', reply_markup: kb });
 }
 
 // ── Фото-сообщения ──────────────────────────────────────────────
@@ -347,7 +355,7 @@ bot.on('message:text', async (ctx) => {
     case 'type_other':
       s.data.type = text;
       s.step = 'about';
-      await ctx.reply('② Расскажи в двух словах: чем занимаешься и что за сайт хочешь?');
+      await ctx.reply('<b>② Шаг 2 из 5</b>\nРасскажи в двух словах: чем занимаешься и что за сайт хочешь?', { parse_mode: 'HTML' });
       break;
     case 'about':
       s.data.about = text;
@@ -355,9 +363,10 @@ bot.on('message:text', async (ctx) => {
       {
         const isSay = s.data.type === TYPES.say;
         const q = isSay
-          ? '③ Какой настрой? Нежно, романтично, со звёздами, по-дружески — или жми «На твой вкус».'
-          : '③ Какой вайб хочешь? Опиши стиль — строго, ярко, тёмный, минимал, любые мысли.';
+          ? '<b>③ Шаг 3 из 5</b>\nКакой настрой? Нежно, романтично, со звёздами, по-дружески — или жми «На твой вкус».'
+          : '<b>③ Шаг 3 из 5</b>\nКакой стиль хочешь? Строго, ярко, тёмный, минимал — любые мысли.';
         await ctx.reply(q, {
+          parse_mode: 'HTML',
           reply_markup: new InlineKeyboard().text(isSay ? 'На твой вкус' : 'Пропустить', 'visual:skip'),
         });
       }
@@ -425,6 +434,13 @@ if (WEBHOOK_URL) {
       drop_pending_updates: true,
     });
     console.log(`Бот @${bot.botInfo.username} на webhook: ${WEBHOOK_URL}/webhook (порт ${PORT})`);
+
+    // Keep-alive: бесплатный план Render усыпляет сервис после ~15 мин без
+    // трафика, из-за чего первый /start ждёт холодного старта. Пингуем сами
+    // себя каждые 10 мин — входящий запрос держит сервис проснувшимся.
+    setInterval(() => {
+      fetch(WEBHOOK_URL).catch((e) => console.warn('keep-alive ping не прошёл:', e.message));
+    }, 10 * 60 * 1000);
   });
 } else {
   // Локальный режим — long polling
