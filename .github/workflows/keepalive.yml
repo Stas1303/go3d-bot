@@ -1,0 +1,17 @@
+name: keep-alive
+
+# Пингуем бота каждые ~5 минут, чтобы бесплатный Render не усыплял его.
+# Render засыпает после 15 мин тишины — частый пинг + запас на опоздания cron.
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch: {}
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Render health endpoint
+        run: |
+          echo "Пингуем go3d-bot..."
+          curl -fsS -m 30 https://go3d-bot.onrender.com/ && echo " — OK" || echo " — недоступен (возможно, просыпается)"
