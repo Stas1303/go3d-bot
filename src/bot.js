@@ -10,10 +10,12 @@ const {
   CHANNEL_ID,
   ADMIN_ID,
   NOTIFY_BOT_TOKEN,
-  SITE_URL = 'https://3-days.ru',
   CONTACT_TELEGRAM = 'https://t.me/lenin321',
   BOT_LINK = 'https://t.me/go3d_bot',
 } = process.env;
+
+// Сайт зашит жёстко — не зависит от env на Render, всегда 3-days.ru
+const SITE_URL = 'https://3-days.ru';
 
 // Отдельный бот-приёмник заявок (личные уведомления фаундеру)
 const notifyApi = NOTIFY_BOT_TOKEN ? new Api(NOTIFY_BOT_TOKEN) : null;
