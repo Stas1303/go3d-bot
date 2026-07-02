@@ -58,24 +58,23 @@ function isAdmin(ctx) {
 
 // ── Память диалога ──────────────────────────────────────────────
 function initial() {
-  return { step: 'idle', data: { type: '', about: '', visual: '', photos: [], contact: '' } };
+  return { step: 'idle', data: { type: '', about: '', offer: '', action: '', visual: '', photos: [], contact: '' } };
 }
 bot.use(session({ initial }));
 
 const TYPES = {
   landing: 'Лендинг / визитка',
   corp: 'Корпоративный сайт',
-  shop: 'Интернет-магазин',
-  say: 'Скажи красиво · сайт-признание',
   other: 'Другое',
 };
 
-// Второй вопрос подстраивается под формат
-const ABOUT_Q = {
-  say:
-    '<b>② Шаг 2 из 4</b>\nРасскажи про неё: как зовут, какой повод и что хочешь сказать. ' +
-    'Можно пару строк — соберу красиво.',
-  _default: '<b>② Шаг 2 из 4</b>\nРасскажи в двух словах: чем занимаешься и что за сайт хочешь?',
+// Целевое действие лендинга — «касса» сайта, определяет главный CTA
+const ACTIONS = {
+  call: 'Позвонить',
+  book: 'Записаться',
+  lead: 'Оставить заявку',
+  order: 'Заказать',
+  visit: 'Приехать',
 };
 
 // ── Помощники ───────────────────────────────────────────────────
@@ -98,12 +97,14 @@ async function sendBrief(ctx) {
   const card =
     '🆕 <b>НОВАЯ ЗАЯВКА · сайт</b>\n' +
     '─────────────────────\n' +
-    `<b>Тип:</b>     ${d.type || '—'}\n` +
-    `<b>Проект:</b>  ${d.about || '—'}\n` +
-    `<b>Визуал:</b>  ${d.visual || '—'}\n` +
-    `<b>Контакт:</b> ${d.contact || userTag(from)}\n` +
-    `<b>От:</b>      ${userTag(from)} (id${from.id})\n` +
-    `<b>Время:</b>   ${when} МСК\n` +
+    `<b>Тип:</b>      ${d.type || '—'}\n` +
+    `<b>Ниша:</b>     ${d.about || '—'}\n` +
+    `<b>Оффер:</b>    ${d.offer || '—'}\n` +
+    `<b>Действие:</b> ${d.action || '—'}\n` +
+    `<b>Визуал:</b>   ${d.visual || '—'}\n` +
+    `<b>Контакт:</b>  ${d.contact || userTag(from)}\n` +
+    `<b>От:</b>       ${userTag(from)} (id${from.id})\n` +
+    `<b>Время:</b>    ${when} МСК\n` +
     '─────────────────────\n' +
     `<b>Фото:</b> ${d.photos.length} шт`;
 
@@ -142,19 +143,6 @@ async function sendBrief(ctx) {
 bot.command('start', async (ctx) => {
   ctx.session = initial();
   console.log(`/start от ${userTag(ctx.from)} — твой ADMIN_ID = ${ctx.from.id}`);
-
-  // Глубокая ссылка с сайта: /start say → сразу формат «Скажи красиво»
-  const payload = (ctx.match || '').trim();
-  if (payload === 'say') {
-    ctx.session.data.type = TYPES.say;
-    ctx.session.step = 'about';
-    await ctx.reply(
-      'Привет! Делаем тебе <b>«Скажи красиво»</b> — персональный сайт-признание по ссылке ✨\n\n' +
-        ABOUT_Q.say,
-      { parse_mode: 'HTML' },
-    );
-    return;
-  }
 
   const kb = new InlineKeyboard().text('Поехали 🚀', 'brief:start');
   const caption =
@@ -260,8 +248,6 @@ bot.callbackQuery('brief:start', async (ctx) => {
   const kb = new InlineKeyboard()
     .text(TYPES.landing, 'type:landing').row()
     .text(TYPES.corp, 'type:corp').row()
-    .text(TYPES.shop, 'type:shop').row()
-    .text(TYPES.say, 'type:say').row()
     .text(TYPES.other, 'type:other');
   // Баннер — это фото, текст у него не редактируется: убираем кнопку и шлём новый вопрос
   try {
@@ -269,7 +255,7 @@ bot.callbackQuery('brief:start', async (ctx) => {
   } catch {
     /* кнопка уже убрана — не страшно */
   }
-  await ctx.reply('<b>① Шаг 1 из 4</b>\nЧто за сайт нужен?', { parse_mode: 'HTML', reply_markup: kb });
+  await ctx.reply('<b>① Шаг 1 из 6</b>\nЧто за сайт нужен?', { parse_mode: 'HTML', reply_markup: kb });
 });
 
 bot.callbackQuery(/^type:(.+)$/, async (ctx) => {
@@ -283,7 +269,42 @@ bot.callbackQuery(/^type:(.+)$/, async (ctx) => {
   ctx.session.data.type = TYPES[key] || key;
   ctx.session.step = 'about';
   await ctx.editMessageText(`✅ Сайт: ${ctx.session.data.type}`);
-  await ctx.reply(ABOUT_Q[key] || ABOUT_Q._default, { parse_mode: 'HTML' });
+  await ctx.reply(ABOUT_Q, { parse_mode: 'HTML' });
+});
+
+// Шаг 2: ниша + аудитория
+const ABOUT_Q =
+  '<b>② Шаг 2 из 6</b>\nЧем занимаешься и кто твой клиент? Пару слов — ' +
+  'например: «барбершоп в центре, парни 20–35».';
+
+// Шаг 3: оффер / УТП — главный продающий экран лендинга
+const OFFER_Q =
+  '<b>③ Шаг 3 из 6</b>\nПочему выбирают тебя, а не соседа? ' +
+  'Цена, скорость, гарантия, атмосфера — что цепляет?';
+
+// Шаг 4: целевое действие — «касса» лендинга, определяет главный CTA
+async function askAction(ctx) {
+  const kb = new InlineKeyboard()
+    .text(ACTIONS.call, 'action:call').text(ACTIONS.book, 'action:book').row()
+    .text(ACTIONS.lead, 'action:lead').text(ACTIONS.order, 'action:order').row()
+    .text(ACTIONS.visit, 'action:visit');
+  await ctx.reply(
+    '<b>④ Шаг 4 из 6</b>\nЧто должен сделать гость на сайте?',
+    { parse_mode: 'HTML', reply_markup: kb },
+  );
+}
+
+bot.callbackQuery(/^action:(.+)$/, async (ctx) => {
+  const key = ctx.match[1];
+  await ctx.answerCallbackQuery();
+  ctx.session.data.action = ACTIONS[key] || key;
+  ctx.session.step = 'visual';
+  await ctx.editMessageText(`✅ Действие: ${ctx.session.data.action}`);
+  await ctx.reply(
+    '<b>⑤ Шаг 5 из 6</b>\nКакой стиль хочешь? Кинь ссылку на сайт, который нравится, ' +
+      'или скажи словами: строго, ярко, тёмный, минимал.',
+    { parse_mode: 'HTML', reply_markup: new InlineKeyboard().text('На твой вкус', 'visual:skip') },
+  );
 });
 
 // ── Пропустить визуал ───────────────────────────────────────────
@@ -310,12 +331,9 @@ function goToPhotos(ctx) {
   ctx.session.data.photos = [];
 }
 async function askPhotos(ctx) {
-  const isSay = ctx.session.data.type === TYPES.say;
-  const q = isSay
-    ? '<b>④ Шаг 4 из 4</b>\nСкинь её фото (1–2) — добавлю на сайт-признание. Как закончишь — жми «Готово». ' +
-      'Нет под рукой — тоже жми «Готово», пришлёшь потом.'
-    : '<b>④ Шаг 4 из 4</b>\nСкинь фото: логотип, фото бизнеса или скрины сайтов, которые нравятся. ' +
-      'Можно несколько. Как закончишь — жми «Готово».';
+  const q =
+    '<b>⑥ Шаг 6 из 6</b>\nСкинь лого, фото бизнеса, тексты/цены если есть. ' +
+    'Можно несколько. Нет под рукой — тоже жми «Готово», соберём и так.';
   await ctx.reply(q, { parse_mode: 'HTML', reply_markup: new InlineKeyboard().text('Готово ✅', 'photos:done') });
 }
 
@@ -327,7 +345,9 @@ async function finish(ctx) {
     '✅ <b>Бриф собран и улетел Стасу</b>\n' +
     '━━━━━━━━━━━━━━━━━\n' +
     `🗂 <b>Сайт:</b> ${d.type || '—'}\n` +
-    `📝 <b>Проект:</b> ${d.about || '—'}\n` +
+    `📝 <b>Ниша:</b> ${d.about || '—'}\n` +
+    `🔥 <b>Оффер:</b> ${d.offer || '—'}\n` +
+    `🎯 <b>Действие:</b> ${d.action || '—'}\n` +
     `🎨 <b>Стиль:</b> ${d.visual || '—'}\n` +
     `🖼 <b>Фото:</b> ${d.photos.length} шт\n` +
     `📲 <b>Контакт:</b> ${d.contact || '—'}\n` +
@@ -374,21 +394,17 @@ bot.on('message:text', async (ctx) => {
     case 'type_other':
       s.data.type = text;
       s.step = 'about';
-      await ctx.reply('<b>② Шаг 2 из 4</b>\nРасскажи в двух словах: чем занимаешься и что за сайт хочешь?', { parse_mode: 'HTML' });
+      await ctx.reply(ABOUT_Q, { parse_mode: 'HTML' });
       break;
     case 'about':
       s.data.about = text;
-      s.step = 'visual';
-      {
-        const isSay = s.data.type === TYPES.say;
-        const q = isSay
-          ? '<b>③ Шаг 3 из 4</b>\nКакой настрой? Нежно, романтично, со звёздами, по-дружески — или жми «На твой вкус».'
-          : '<b>③ Шаг 3 из 4</b>\nКакой стиль хочешь? Строго, ярко, тёмный, минимал — любые мысли.';
-        await ctx.reply(q, {
-          parse_mode: 'HTML',
-          reply_markup: new InlineKeyboard().text(isSay ? 'На твой вкус' : 'Пропустить', 'visual:skip'),
-        });
-      }
+      s.step = 'offer';
+      await ctx.reply(OFFER_Q, { parse_mode: 'HTML' });
+      break;
+    case 'offer':
+      s.data.offer = text;
+      s.step = 'action';
+      await askAction(ctx);
       break;
     case 'visual':
       s.data.visual = text;
